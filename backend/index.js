@@ -4,9 +4,14 @@ import { Server } from "socket.io";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
 import cors from "cors";
-import authRoutes from "./routes/authRoutes.js";
 
 dotenv.config();
+
+// CRITICAL: Set this BEFORE importing any routes/models
+mongoose.set('bufferCommands', false);
+
+import authRoutes from "./routes/authRoutes.js";
+
 
 const app = express();
 const server = http.createServer(app);
@@ -24,11 +29,39 @@ app.use(express.json());
 app.use("/api/auth", authRoutes);
 
 // Database Connection
-const MONGO_URI = process.env.MONGO_URI || "mongodb://localhost:27017/webrtc_app";
+const MONGO_URI = process.env.MONGO_URI;
+
+if (!MONGO_URI) {
+  console.error("❌ CRITICAL: MONGO_URI is not defined in environment variables.");
+  if (process.env.NODE_ENV === 'production') {
+    console.error("Please set MONGO_URI in your production environment settings.");
+  } else {
+    console.log("Using local fallback: mongodb://localhost:27017/webrtc_app");
+  }
+}
+
 mongoose
-  .connect(MONGO_URI)
-  .then(() => console.log("📦 MongoDB Connected"))
-  .catch((err) => console.error("❌ MongoDB Connection Error:", err));
+  .connect(MONGO_URI || "mongodb://localhost:27017/webrtc_app", {
+    serverSelectionTimeoutMS: 5000,
+    connectTimeoutMS: 10000,
+  })
+  .then(() => console.log("📦 MongoDB Connected Successfully"))
+  .catch((err) => {
+    console.error("❌ MongoDB Connection Error Detail:", err.message);
+  });
+
+// Status Route for Debugging
+app.get("/api/auth/status", (req, res) => {
+  const status = mongoose.connection.readyState;
+  const states = ["disconnected", "connected", "connecting", "disconnecting"];
+  res.json({
+    status: states[status],
+    dbName: mongoose.connection.name,
+    env: process.env.NODE_ENV
+  });
+});
+
+
 
 // WebRTC Signaling
 const rooms = {};

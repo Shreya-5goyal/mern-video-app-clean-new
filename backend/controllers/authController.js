@@ -1,5 +1,16 @@
 import User from "../models/User.js";
 import jwt from "jsonwebtoken";
+import mongoose from "mongoose";
+
+const checkDbConnection = (res) => {
+    if (mongoose.connection.readyState !== 1) {
+        res.status(503).json({
+            message: "Database connection is not established. Please check backend configuration (MONGO_URI)."
+        });
+        return false;
+    }
+    return true;
+};
 
 const generateToken = (id) => {
     return jwt.sign({ id }, process.env.JWT_SECRET || "default_secret", {
@@ -11,6 +22,8 @@ const generateToken = (id) => {
 // @route   POST /api/auth/signup
 export const registerUser = async (req, res) => {
     const { name, email, password } = req.body;
+
+    if (!checkDbConnection(res)) return;
 
     try {
         const userExists = await User.findOne({ email });
@@ -44,6 +57,8 @@ export const registerUser = async (req, res) => {
 // @route   POST /api/auth/login
 export const authUser = async (req, res) => {
     const { email, password } = req.body;
+
+    if (!checkDbConnection(res)) return;
 
     try {
         const user = await User.findOne({ email });

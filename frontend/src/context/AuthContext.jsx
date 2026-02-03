@@ -8,8 +8,8 @@ export const AuthProvider = ({ children }) => {
     const [loading, setLoading] = useState(true);
 
     // Dynamic backend detection
-    const host = window.location.hostname;
-    const backendUrl = `http://${host}:5000/api/auth`;
+    const signalingServer = import.meta.env.VITE_APP_SIGNALING_SERVER || `http://${window.location.hostname}:5000`;
+    const backendUrl = `${signalingServer}/api/auth`;
 
     useEffect(() => {
         const userInfo = JSON.parse(localStorage.getItem("userInfo"));
