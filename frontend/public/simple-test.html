@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Simple WebRTC Test</title>
+    <style>
+        body {
+            font-family: Arial;
+            padding: 20px;
+            background: #1a1a1a;
+            color: white;
+        }
+
+        video {
+            width: 400px;
+            background: black;
+            border: 2px solid #4CAF50;
+            margin: 10px;
+        }
+
+        button {
+            padding: 15px 30px;
+            font-size: 18px;
+            margin: 10px;
+            cursor: pointer;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+
+        button:hover {
+            background: #45a049;
+        }
+
+        #status {
+            padding: 10px;
+            margin: 10px 0;
+            background: #333;
+            border-radius: 5px;
+        }
+
+        .success {
+            color: #4CAF50;
+        }
+
+        .error {
+            color: #f44336;
+        }
+
+        .info {
+            color: #2196F3;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>🎥 Simple WebRTC Test</h1>
+    <div id="status">Status: Not started</div>
+
+    <div>
+        <input type="text" id="roomInput" placeholder="Enter room ID" value="TEST123"
+            style="padding: 10px; font-size: 16px; width: 200px;">
+        <button onclick="start()">START</button>
+    </div>
+
+    <div style="display: flex;">
+        <div>
+            <h3>Your Video</h3>
+            <video id="local" autoplay muted playsinline></video>
+        </div>
+        <div>
+            <h3>Remote Video</h3>
+            <video id="remote" autoplay playsinline></video>
+        </div>
+    </div>
+
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script>
+        const status = document.getElementById('status');
+        const localVideo = document.getElementById('local');
+        const remoteVideo = document.getElementById('remote');
+
+        let socket, pc, localStream;
+
+        function log(msg, type = 'info') {
+            console.log(msg);
+            status.innerHTML = `<span class="${type}">${msg}</span>`;
+        }
+
+        async function start() {
+            const roomId = document.getElementById('roomInput').value;
+
+            try {
+                log('🔌 Connecting to server...', 'info');
+                socket = io('http://localhost:5000');
+
+                socket.on('connect', () => {
+                    log('✅ Connected! Socket ID: ' + socket.id, 'success');
+                    setupWebRTC(roomId);
+                });
+
+                socket.on('disconnect', () => {
+                    log('❌ Disconnected from server', 'error');
+                });
+
+            } catch (err) {
+                log('❌ Error: ' + err.message, 'error');
+            }
+        }
+
+        async function setupWebRTC(roomId) {
+            try {
+                // Get camera/mic
+                log('📹 Getting camera and microphone...', 'info');
+                localStream = await navigator.mediaDevices.getUserMedia({
+                    video: true,
+                    audio: true
+                });
+
+                localVideo.srcObject = localStream;
+                log('✅ Got local media!', 'success');
+
+                // Create peer connection
+                pc = new RTCPeerConnection({
+                    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+                });
+
+                // Add tracks
+                localStream.getTracks().forEach(track => {
+                    pc.addTrack(track, localStream);
+                });
+                log('✅ Added tracks to peer connection', 'success');
+
+                // Handle remote track
+                pc.ontrack = (event) => {
+                    log('🎉 GOT REMOTE VIDEO!', 'success');
+                    remoteVideo.srcObject = event.streams[0];
+                };
+
+                // Handle ICE candidates
+                pc.onicecandidate = (event) => {
+                    if (event.candidate) {
+                        socket.emit('ice-candidate', { roomId, candidate: event.candidate });
+                    }
+                };
+
+                // Socket handlers
+                socket.on('role', async (role) => {
+                    log(`👤 Role: ${role}`, 'info');
+
+                    if (role === 'caller') {
+                        log('📞 Creating offer...', 'info');
+                        const offer = await pc.createOffer();
+                        await pc.setLocalDescription(offer);
+                        socket.emit('offer', { roomId, offer });
+                        log('✅ Offer sent!', 'success');
+                    }
+                });
+
+                socket.on('offer', async (offer) => {
+                    log('📨 Got offer, sending answer...', 'info');
+                    await pc.setRemoteDescription(new RTCSessionDescription(offer));
+                    const answer = await pc.createAnswer();
+                    await pc.setLocalDescription(answer);
+                    socket.emit('answer', { roomId, answer });
+                    log('✅ Answer sent!', 'success');
+                });
+
+                socket.on('answer', async (answer) => {
+                    log('📨 Got answer!', 'info');
+                    await pc.setRemoteDescription(new RTCSessionDescription(answer));
+                    log('✅ Connection should be established!', 'success');
+                });
+
+                socket.on('ice-candidate', async (candidate) => {
+                    await pc.addIceCandidate(new RTCIceCandidate(candidate));
+                });
+
+                // Join room
+                log(`🚪 Joining room: ${roomId}`, 'info');
+                socket.emit('join-room', roomId);
+
+            } catch (err) {
+                log('❌ Error: ' + err.message, 'error');
+            }
+        }
+    </script>
+</body>
+
+</html>

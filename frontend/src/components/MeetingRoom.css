@@ -1,0 +1,101 @@
+.meeting-wrapper {
+    width: 100vw;
+    height: 100vh;
+    background: #000;
+    position: relative;
+    overflow: hidden;
+}
+
+.fullscreen-view {
+    width: 100%;
+    height: 100%;
+}
+
+.waiting-info {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    color: #fff;
+    background: rgba(0, 0, 0, 0.5);
+    padding: 20px;
+    border-radius: 12px;
+}
+
+.p2p-view {
+    width: 100%;
+    height: 100%;
+    position: relative;
+}
+
+.remote-main {
+    width: 100%;
+    height: 100%;
+}
+
+.local-small {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    width: 150px;
+    height: 220px;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    z-index: 10;
+}
+
+.grid-view {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 10px;
+    height: 100%;
+    padding: 10px;
+    padding-bottom: 100px;
+}
+
+.video-cell {
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.video-label {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    background: rgba(0, 0, 0, 0.5);
+    color: #fff;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+}
+
+.controls-bar {
+    position: absolute;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 15px;
+    z-index: 100;
+}
+
+.controls-bar button {
+    padding: 12px 24px;
+    border-radius: 30px;
+    border: none;
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    cursor: pointer;
+    font-weight: 600;
+    backdrop-filter: blur(5px);
+}
+
+.btn-red {
+    background: #f85149 !important;
+}
+
+.end-btn {
+    padding: 12px 30px !important;
+}

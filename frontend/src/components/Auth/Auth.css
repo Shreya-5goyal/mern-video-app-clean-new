@@ -1,0 +1,110 @@
+.auth-container {
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(circle at center, #1a1a2e 0%, #0d1117 100%);
+}
+
+.auth-card {
+    width: 100%;
+    max-width: 400px;
+    background: rgba(22, 27, 34, 0.8);
+    backdrop-filter: blur(20px);
+    padding: 40px;
+    border-radius: 24px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.auth-header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.auth-header h1 {
+    font-size: 28px;
+    margin-bottom: 8px;
+    background: linear-gradient(135deg, #fff 0%, #a5a5a5 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.auth-header p {
+    color: #8b949e;
+    font-size: 14px;
+}
+
+.auth-form .form-group {
+    margin-bottom: 20px;
+}
+
+.auth-form label {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 13px;
+    color: #c9d1d9;
+}
+
+.auth-form input {
+    width: 100%;
+    padding: 12px 16px;
+    background: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    color: #fff;
+    font-size: 14px;
+    transition: all 0.2s;
+}
+
+.auth-form input:focus {
+    border-color: #58a6ff;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.1);
+}
+
+.auth-error {
+    background: rgba(248, 81, 73, 0.1);
+    color: #f85149;
+    padding: 10px;
+    border-radius: 8px;
+    font-size: 13px;
+    margin-bottom: 20px;
+    text-align: center;
+    border: 1px solid rgba(248, 81, 73, 0.2);
+}
+
+.auth-btn {
+    width: 100%;
+    padding: 14px;
+    background: #238636;
+    border: none;
+    border-radius: 8px;
+    color: #fff;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.auth-btn:hover {
+    background: #2ea043;
+    transform: translateY(-2px);
+}
+
+.auth-footer {
+    margin-top: 25px;
+    text-align: center;
+    font-size: 14px;
+    color: #8b949e;
+}
+
+.auth-footer span {
+    color: #58a6ff;
+    cursor: pointer;
+    font-weight: 500;
+}
+
+.auth-footer span:hover {
+    text-decoration: underline;
+}

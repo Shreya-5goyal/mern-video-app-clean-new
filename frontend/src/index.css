@@ -1,0 +1,28 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+  --bg-dark: #0d1117;
+  --bg-hover: #161b22;
+  --primary: #58a6ff;
+  --danger: #f85149;
+  --text-main: #c9d1d9;
+  --text-bright: #ffffff;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', -apple-system, system-ui, sans-serif;
+  background-color: var(--bg-dark);
+  color: var(--text-main);
+  overflow-x: hidden;
+}
+
+#root {
+  width: 100%;
+  height: 100vh;
+}

@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WebRTC Debug Test</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background: #1a1a1a;
+      color: white;
+    }
+    video {
+      width: 300px;
+      height: 200px;
+      background: black;
+      border: 2px solid #666;
+      margin: 10px;
+    }
+    button {
+      padding: 10px 20px;
+      margin: 5px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    #log {
+      background: #000;
+      padding: 10px;
+      margin-top: 20px;
+      height: 300px;
+      overflow-y: auto;
+      font-family: monospace;
+      font-size: 12px;
+    }
+    .log-entry {
+      margin: 2px 0;
+    }
+    .error { color: #ff6b6b; }
+    .success { color: #51cf66; }
+    .info { color: #74c0fc; }
+  </style>
+</head>
+<body>
+  <h1>WebRTC Connection Test</h1>
+  
+  <div>
+    <h3>Room: <span id="roomId">TEST-ROOM</span></h3>
+    <button onclick="startTest()">Start Test</button>
+    <button onclick="toggleVideo()">Toggle Video</button>
+    <button onclick="toggleAudio()">Toggle Audio</button>
+  </div>
+
+  <div style="display: flex;">
+    <div>
+      <h3>Local Video</h3>
+      <video id="localVideo" autoplay muted playsinline></video>
+    </div>
+    <div>
+      <h3>Remote Video</h3>
+      <video id="remoteVideo" autoplay playsinline></video>
+    </div>
+  </div>
+
+  <div id="log"></div>
+
+  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+  <script>
+    const log = (message, type = 'info') => {
+      const logDiv = document.getElementById('log');
+      const entry = document.createElement('div');
+      entry.className = `log-entry ${type}`;
+      entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+      logDiv.appendChild(entry);
+      logDiv.scrollTop = logDiv.scrollHeight;
+      console.log(message);
+    };
+
+    let socket;
+    let pc;
+    let localStream;
+    const roomId = 'TEST-ROOM';
+
+    async function startTest() {
+      try {
+        log('Connecting to signaling server...', 'info');
+        socket = io('http://localhost:5000', {
+          transports: ['websocket']
+        });
+
+        socket.on('connect', () => {
+          log('✓ Connected to server. Socket ID: ' + socket.id, 'success');
+        });
+
+        socket.on('disconnect', () => {
+          log('✗ Disconnected from server', 'error');
+        });
+
+        log('Requesting camera and microphone...', 'info');
+        localStream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: true
+        });
+        log('✓ Got local media stream', 'success');
+
+        document.getElementById('localVideo').srcObject = localStream;
+
+        log('Creating peer connection...', 'info');
+        pc = new RTCPeerConnection({
+          iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' }
+          ]
+        });
+
+        localStream.getTracks().forEach(track => {
+          pc.addTrack(track, localStream);
+          log(`✓ Added ${track.kind} track to peer connection`, 'success');
+        });
+
+        pc.ontrack = (event) => {
+          log('✓ Received remote track!', 'success');
+          document.getElementById('remoteVideo').srcObject = event.streams[0];
+        };
+
+        pc.onicecandidate = (event) => {
+          if (event.candidate) {
+            log('Sending ICE candidate', 'info');
+            socket.emit('ice-candidate', { roomId, candidate: event.candidate });
+          }
+        };
+
+        pc.oniceconnectionstatechange = () => {
+          log(`ICE connection state: ${pc.iceConnectionState}`, 'info');
+        };
+
+        pc.onconnectionstatechange = () => {
+          log(`Connection state: ${pc.connectionState}`, 'info');
+        };
+
+        socket.on('role', async (role) => {
+          log(`✓ Assigned role: ${role}`, 'success');
+          
+          if (role === 'caller') {
+            log('Creating offer...', 'info');
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            socket.emit('offer', { roomId, offer });
+            log('✓ Offer sent', 'success');
+          }
+        });
+
+        socket.on('offer', async (offer) => {
+          log('✓ Received offer', 'success');
+          await pc.setRemoteDescription(new RTCSessionDescription(offer));
+          const answer = await pc.createAnswer();
+          await pc.setLocalDescription(answer);
+          socket.emit('answer', { roomId, answer });
+          log('✓ Answer sent', 'success');
+        });
+
+        socket.on('answer', async (answer) => {
+          log('✓ Received answer', 'success');
+          await pc.setRemoteDescription(new RTCSessionDescription(answer));
+        });
+
+        socket.on('ice-candidate', async (candidate) => {
+          try {
+            await pc.addIceCandidate(new RTCIceCandidate(candidate));
+            log('✓ Added ICE candidate', 'success');
+          } catch (err) {
+            log('✗ Error adding ICE candidate: ' + err.message, 'error');
+          }
+        });
+
+        log('Joining room...', 'info');
+        socket.emit('join-room', roomId);
+
+      } catch (err) {
+        log('✗ ERROR: ' + err.message, 'error');
+      }
+    }
+
+    function toggleVideo() {
+      if (localStream) {
+        const videoTrack = localStream.getVideoTracks()[0];
+        videoTrack.enabled = !videoTrack.enabled;
+        log(`Video ${videoTrack.enabled ? 'enabled' : 'disabled'}`, 'info');
+      }
+    }
+
+    function toggleAudio() {
+      if (localStream) {
+        const audioTrack = localStream.getAudioTracks()[0];
+        audioTrack.enabled = !audioTrack.enabled;
+        log(`Audio ${audioTrack.enabled ? 'enabled' : 'disabled'}`, 'info');
+      }
+    }
+  </script>
+</body>
+</html>
