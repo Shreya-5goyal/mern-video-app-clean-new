@@ -1,0 +1,5 @@
+{"level":"warn","message":"⚠️ REDIS_URL not set. Using in-memory storage (not suitable for production scaling)","service":"webrtc-signaling","timestamp":"2026-02-10T10:21:45.979Z"}
+{"level":"info","message":"🚀 Server running on http://0.0.0.0:5000","service":"webrtc-signaling","timestamp":"2026-02-10T10:21:45.986Z"}
+{"level":"info","message":"Environment: development","service":"webrtc-signaling","timestamp":"2026-02-10T10:21:45.987Z"}
+{"level":"info","message":"Redis: Disabled (in-memory)","service":"webrtc-signaling","timestamp":"2026-02-10T10:21:45.987Z"}
+{"level":"info","message":"📦 MongoDB Connected Successfully","service":"webrtc-signaling","timestamp":"2026-02-10T10:21:46.811Z"}

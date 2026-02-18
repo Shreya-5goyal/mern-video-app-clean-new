@@ -15,12 +15,27 @@ export const useWebRTC = (roomId) => {
     const createPC = (targetID, stream) => {
       console.log(`[WebRTC] 🔌 Creating PeerConnection for: ${targetID}`);
 
+      // Environment Variables for TURN
+      const turnUrl = import.meta.env.VITE_TURN_URL;
+      const turnUsername = import.meta.env.VITE_TURN_USERNAME;
+      const turnCredential = import.meta.env.VITE_TURN_CREDENTIAL;
+
+      const iceServers = [
+        { urls: "stun:stun.l.google.com:19302" },
+        { urls: "stun:stun1.l.google.com:19302" },
+      ];
+
+      if (turnUrl && turnUsername && turnCredential) {
+        console.log("[WebRTC] 🔄 Using Configured TURN Server");
+        iceServers.push({
+          urls: turnUrl,
+          username: turnUsername,
+          credential: turnCredential,
+        });
+      }
+
       const pc = new RTCPeerConnection({
-        iceServers: [
-          { urls: "stun:stun.l.google.com:19302" },
-          { urls: "stun:stun1.l.google.com:19302" },
-          { urls: "stun:stun2.l.google.com:19302" }
-        ]
+        iceServers: iceServers
       });
 
       // Add Tracks
@@ -164,5 +179,66 @@ export const useWebRTC = (roomId) => {
     return false;
   }, []);
 
-  return { localStream, peers, error, toggleTrack };
+  /* --- Screen Sharing Logic --- */
+  const startScreenShare = useCallback(async () => {
+    try {
+      const screenStream = await navigator.mediaDevices.getDisplayMedia({
+        video: { cursor: "always" },
+        audio: false // System audio not supported in this simple implementation
+      });
+
+      const screenTrack = screenStream.getVideoTracks()[0];
+
+      // Restore original camera when screen sharing ends via browser UI
+      screenTrack.onended = () => {
+        stopScreenShare();
+      };
+
+      if (localStreamRef.current) {
+        // Replace track in PeerConnection(s)
+        const senders = Object.values(peersRef.current).flatMap(p => p.pc.getSenders());
+        const videoSender = senders.find(s => s.track?.kind === "video");
+        if (videoSender) {
+          videoSender.replaceTrack(screenTrack);
+        }
+
+        // Update local stream state for UI
+        const newStream = new MediaStream([screenTrack, ...localStreamRef.current.getAudioTracks()]);
+        setLocalStream(newStream);
+      }
+
+      return true;
+    } catch (err) {
+      console.error("Screen Share Error:", err);
+      return false;
+    }
+  }, []);
+
+  const stopScreenShare = useCallback(async () => {
+    try {
+      const cameraStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      const videoTrack = cameraStream.getVideoTracks()[0];
+
+      if (localStreamRef.current) {
+        // Stop screen share track
+        const currentVideoTrack = localStreamRef.current.getVideoTracks()[0];
+        if (currentVideoTrack) currentVideoTrack.stop();
+
+        // Replace with camera track in PeerConnection(s)
+        const senders = Object.values(peersRef.current).flatMap(p => p.pc.getSenders());
+        const videoSender = senders.find(s => s.track?.kind === "video");
+        if (videoSender) {
+          videoSender.replaceTrack(videoTrack);
+        }
+
+        // Update local stream
+        setLocalStream(cameraStream);
+        localStreamRef.current = cameraStream;
+      }
+    } catch (err) {
+      console.error("Failed to restore camera:", err);
+    }
+  }, []);
+
+  return { localStream, peers, error, toggleTrack, startScreenShare, stopScreenShare };
 };
