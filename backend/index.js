@@ -66,6 +66,7 @@ app.get("/api/auth/status", (req, res) => {
 // WebRTC Signaling
 const rooms = {};
 const socketToRoom = {};
+const socketToName = {}; // Track user names for chat
 
 io.on("connection", (socket) => {
   console.log("✓ User connected:", socket.id);
@@ -92,14 +93,44 @@ io.on("connection", (socket) => {
     io.to(payload.target).emit("ice-candidate", { candidate: payload.candidate, callerID: socket.id });
   });
 
+  // ============================================
+  // CHAT EVENTS
+  // ============================================
+  socket.on("chat-join", ({ roomId, userName }) => {
+    socketToName[socket.id] = userName;
+    // Notify others in the room
+    socket.to(roomId).emit("user-joined-chat", { userName, socketId: socket.id });
+  });
+
+  socket.on("chat-message", ({ roomId, senderName, text, timestamp, type }) => {
+    // Broadcast to all others in the room
+    socket.to(roomId).emit("chat-message", {
+      senderId: socket.id,
+      senderName,
+      text,
+      timestamp,
+      type: type || 'text',
+    });
+  });
+
+  socket.on("chat-leave", ({ roomId, userName }) => {
+    socket.to(roomId).emit("user-left-chat", { userName, socketId: socket.id });
+  });
+
   socket.on("disconnect", () => {
     const roomId = socketToRoom[socket.id];
+    const userName = socketToName[socket.id];
     if (rooms[roomId]) {
       rooms[roomId] = rooms[roomId].filter((id) => id !== socket.id);
       socket.to(roomId).emit("user-disconnected", socket.id);
+      // Notify chat about user leaving
+      if (userName) {
+        socket.to(roomId).emit("user-left-chat", { userName, socketId: socket.id });
+      }
       if (rooms[roomId].length === 0) delete rooms[roomId];
     }
     delete socketToRoom[socket.id];
+    delete socketToName[socket.id];
   });
 });
 

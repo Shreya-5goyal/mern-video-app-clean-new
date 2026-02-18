@@ -1,0 +1,163 @@
+/* ============================================
+   VIDEO FILTERS - Snapchat-like UI
+   ============================================ */
+
+.filtered-video-wrapper {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    border-radius: inherit;
+}
+
+.sticker-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 5;
+}
+
+/* Filter Picker Panel */
+.filter-picker {
+    position: absolute;
+    bottom: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(10, 10, 20, 0.92);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 1.5rem;
+    padding: 1rem;
+    z-index: 200;
+    width: min(420px, 95vw);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.05);
+    animation: slideUpPanel 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes slideUpPanel {
+    from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(20px) scale(0.95);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0) scale(1);
+    }
+}
+
+.filter-tabs {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 0.75rem;
+    padding: 0.25rem;
+}
+
+.filter-tab {
+    flex: 1;
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 0.5rem;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.filter-tab.active {
+    background: linear-gradient(135deg, #7c3aed, #4f46e5);
+    color: white;
+    box-shadow: 0 4px 12px rgba(124, 58, 237, 0.4);
+}
+
+.filter-tab:hover:not(.active) {
+    color: white;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.filter-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.5rem;
+    max-height: 200px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(124, 58, 237, 0.5) transparent;
+}
+
+.filter-grid::-webkit-scrollbar {
+    width: 4px;
+}
+
+.filter-grid::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.filter-grid::-webkit-scrollbar-thumb {
+    background: rgba(124, 58, 237, 0.5);
+    border-radius: 2px;
+}
+
+.filter-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.6rem 0.4rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 0.75rem;
+    background: rgba(255, 255, 255, 0.04);
+    color: rgba(255, 255, 255, 0.7);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 0.65rem;
+    font-weight: 500;
+}
+
+.filter-item:hover {
+    background: rgba(124, 58, 237, 0.2);
+    border-color: rgba(124, 58, 237, 0.4);
+    color: white;
+    transform: translateY(-2px);
+}
+
+.filter-item.active {
+    background: linear-gradient(135deg, rgba(124, 58, 237, 0.4), rgba(79, 70, 229, 0.4));
+    border-color: #7c3aed;
+    color: white;
+    box-shadow: 0 0 12px rgba(124, 58, 237, 0.4);
+}
+
+.filter-emoji {
+    font-size: 1.4rem;
+    line-height: 1;
+}
+
+.filter-name {
+    font-size: 0.6rem;
+    text-align: center;
+    line-height: 1.2;
+}
+
+/* Active filter indicator on video */
+.filter-active-badge {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    background: linear-gradient(135deg, #7c3aed, #4f46e5);
+    color: white;
+    font-size: 0.6rem;
+    font-weight: 700;
+    padding: 0.2rem 0.5rem;
+    border-radius: 0.5rem;
+    z-index: 10;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}

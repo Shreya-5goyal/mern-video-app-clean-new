@@ -4,13 +4,23 @@ import { useAI } from "../hooks/useAI";
 import {
   Mic, MicOff, Video, VideoOff, PhoneOff,
   ShieldCheck, BrainCircuit, MessageSquare,
-  UserCircle, Settings, Sparkles, Scan, Share
+  UserCircle, Sparkles, Scan, Share, Wand2, Smile
 } from "lucide-react";
 import AILayer from "./AI/AILayer";
 import PostCallAnalytics from "./AI/PostCallAnalytics";
+import { FilteredVideo, FilterPicker, FILTERS } from "./VideoFilters/VideoFilters";
+import AvatarSelector, { AvatarDisplay, AVATARS } from "./VideoFilters/AvatarSelector";
+import ChatBox, { ChatToggleButton } from "./Chat/ChatBox";
 import "./MeetingRoom.css";
 
-const VideoItem = memo(({ stream, id, isLocal = false, isVideoOff = false, label = "", aiState }) => {
+// ============================================
+// VIDEO ITEM with filter + avatar support
+// ============================================
+const VideoItem = memo(({
+  stream, id, isLocal = false, isVideoOff = false, label = "",
+  aiState, activeFilter = 'none', activeSticker = 'none',
+  activeAvatar = 'astronaut', userName = ''
+}) => {
   const videoRef = useRef(null);
 
   useEffect(() => {
@@ -25,22 +35,33 @@ const VideoItem = memo(({ stream, id, isLocal = false, isVideoOff = false, label
     play();
   }, [stream, isVideoOff]);
 
+  const showAvatar = isVideoOff || (isLocal && aiState?.isAvatarMode);
+
   return (
     <div className="video-box" style={{ width: '100%', height: '100%', position: 'relative' }}>
-      {isVideoOff ? (
+      {showAvatar ? (
+        <AvatarDisplay avatar={activeAvatar} userName={userName || label} />
+      ) : stream ? (
+        <FilteredVideo
+          stream={stream}
+          isLocal={isLocal}
+          activeFilter={isLocal ? activeFilter : 'none'}
+          activeSticker={isLocal ? activeSticker : 'none'}
+          style={{ width: '100%', height: '100%' }}
+        />
+      ) : (
         <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-card)', color: '#fff' }}>
           <UserCircle size={64} opacity={0.3} />
         </div>
-      ) : (
-        <video
-          ref={videoRef}
-          autoPlay
-          muted={isLocal}
-          playsInline
-          className={aiState?.isFocused ? "" : "blur-video"}
-          style={{ width: '100%', height: '100%', objectFit: 'cover', transform: isLocal ? 'scaleX(-1)' : 'none' }}
-        />
       )}
+
+      {/* Active filter badge */}
+      {isLocal && activeFilter !== 'none' && !showAvatar && (
+        <div className="filter-active-badge">
+          {FILTERS.find(f => f.id === activeFilter)?.emoji} {FILTERS.find(f => f.id === activeFilter)?.name}
+        </div>
+      )}
+
       <div className="video-label">
         {isLocal ? <UserCircle size={14} /> : <div className="live-dot" />}
         {label}
@@ -52,6 +73,9 @@ const VideoItem = memo(({ stream, id, isLocal = false, isVideoOff = false, label
   );
 });
 
+// ============================================
+// MAIN MEETING ROOM
+// ============================================
 const MeetingRoom = ({ roomId, userName, onLeave }) => {
   const [isVerified, setIsVerified] = useState(false);
   const [verifying, setVerifying] = useState(true);
@@ -61,6 +85,17 @@ const MeetingRoom = ({ roomId, userName, onLeave }) => {
 
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [theme, setTheme] = useState('dark');
+
+  // Filter & Avatar state
+  const [activeFilter, setActiveFilter] = useState('none');
+  const [activeSticker, setActiveSticker] = useState('none');
+  const [activeAvatar, setActiveAvatar] = useState('astronaut');
+  const [showFilterPanel, setShowFilterPanel] = useState(false);
+  const [showAvatarPanel, setShowAvatarPanel] = useState(false);
+
+  // Chat state
+  const [showChat, setShowChat] = useState(false);
+  const [chatUnread, setChatUnread] = useState(0);
 
   const { localStream, peers, error, toggleTrack, startScreenShare, stopScreenShare } = useWebRTC(roomId);
   const aiState = useAI(isVerified && aiEnabled);
@@ -96,6 +131,34 @@ const MeetingRoom = ({ roomId, userName, onLeave }) => {
 
   const handleEndCall = () => {
     setShowAnalytics(true);
+  };
+
+  const handleFilterChange = useCallback((filterId) => {
+    setActiveFilter(filterId);
+  }, []);
+
+  const handleStickerChange = useCallback((stickerId) => {
+    setActiveSticker(stickerId);
+  }, []);
+
+  const handleAvatarChange = useCallback((avatarId) => {
+    setActiveAvatar(avatarId);
+    setShowAvatarPanel(false);
+  }, []);
+
+  const toggleFilterPanel = () => {
+    setShowFilterPanel(prev => !prev);
+    setShowAvatarPanel(false);
+  };
+
+  const toggleAvatarPanel = () => {
+    setShowAvatarPanel(prev => !prev);
+    setShowFilterPanel(false);
+  };
+
+  const toggleChat = () => {
+    setShowChat(prev => !prev);
+    if (!showChat) setChatUnread(0);
   };
 
   const activePeers = Array.isArray(peers) ? peers : [];
@@ -141,10 +204,16 @@ const MeetingRoom = ({ roomId, userName, onLeave }) => {
         </button>
       </div>
 
-      <div className="p2p-view">
+      {/* Main video layout */}
+      <div className={`p2p-view ${showChat ? 'with-chat' : ''}`}>
         <div className="remote-main">
           {activePeers[0] ? (
-            <VideoItem stream={activePeers[0].stream} id={activePeers[0].peerID} label="Guest" />
+            <VideoItem
+              stream={activePeers[0].stream}
+              id={activePeers[0].peerID}
+              label="Guest"
+              activeAvatar={activeAvatar}
+            />
           ) : (
             <div className="waiting-info">
               <Sparkles className="pulse-slow" size={48} />
@@ -162,6 +231,10 @@ const MeetingRoom = ({ roomId, userName, onLeave }) => {
             isVideoOff={videoOff}
             label={isScreenSharing ? "Your Screen" : "You"}
             aiState={aiState}
+            activeFilter={activeFilter}
+            activeSticker={activeSticker}
+            activeAvatar={activeAvatar}
+            userName={userName}
           />
         </div>
 
@@ -175,6 +248,35 @@ const MeetingRoom = ({ roomId, userName, onLeave }) => {
         )}
       </div>
 
+      {/* Filter Panel */}
+      {showFilterPanel && (
+        <FilterPicker
+          activeFilter={activeFilter}
+          onFilterChange={handleFilterChange}
+          activeSticker={activeSticker}
+          onStickerChange={handleStickerChange}
+        />
+      )}
+
+      {/* Avatar Selector Panel */}
+      {showAvatarPanel && (
+        <AvatarSelector
+          activeAvatar={activeAvatar}
+          onAvatarChange={handleAvatarChange}
+          userName={userName}
+        />
+      )}
+
+      {/* Chat Box */}
+      {showChat && (
+        <ChatBox
+          roomId={roomId}
+          userName={userName}
+          onClose={() => setShowChat(false)}
+        />
+      )}
+
+      {/* Controls Bar */}
       <div className="controls-bar">
         <button
           onClick={() => setMuted(toggleTrack("audio"))}
@@ -199,6 +301,31 @@ const MeetingRoom = ({ roomId, userName, onLeave }) => {
         >
           <Share size={20} />
         </button>
+
+        {/* Filters button */}
+        <button
+          onClick={toggleFilterPanel}
+          className={`ctrl-btn ${showFilterPanel ? "active-filter" : ""}`}
+          title="Video Filters & Stickers"
+        >
+          <Smile size={20} />
+        </button>
+
+        {/* Avatar button */}
+        <button
+          onClick={toggleAvatarPanel}
+          className={`ctrl-btn ${showAvatarPanel ? "active-avatar" : ""}`}
+          title="Choose Avatar"
+        >
+          <Wand2 size={20} />
+        </button>
+
+        {/* Chat toggle */}
+        <ChatToggleButton
+          onClick={toggleChat}
+          unreadCount={chatUnread}
+          isOpen={showChat}
+        />
 
         <button onClick={handleEndCall} className="ctrl-btn danger" title="End Call">
           <PhoneOff size={24} />
@@ -232,4 +359,3 @@ const MeetingRoom = ({ roomId, userName, onLeave }) => {
 };
 
 export default MeetingRoom;
-
