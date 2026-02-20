@@ -4,8 +4,10 @@ import { useAI } from "../hooks/useAI";
 import {
   Mic, MicOff, Video, VideoOff, PhoneOff,
   ShieldCheck, BrainCircuit, MessageSquare,
-  UserCircle, Sparkles, Scan, Share, Wand2, Smile
+  UserCircle, Sparkles, Scan, Share, Wand2
 } from "lucide-react";
+import Smile from "lucide-react/dist/esm/icons/smile.js";
+
 import AILayer from "./AI/AILayer";
 import PostCallAnalytics from "./AI/PostCallAnalytics";
 import { FilteredVideo, FilterPicker, FILTERS } from "./VideoFilters/VideoFilters";
@@ -92,6 +94,7 @@ const MeetingRoom = ({ roomId, userName, onLeave }) => {
   const [activeAvatar, setActiveAvatar] = useState('astronaut');
   const [showFilterPanel, setShowFilterPanel] = useState(false);
   const [showAvatarPanel, setShowAvatarPanel] = useState(false);
+  const [isSwapped, setIsSwapped] = useState(false);
 
   // Chat state
   const [showChat, setShowChat] = useState(false);
@@ -207,35 +210,66 @@ const MeetingRoom = ({ roomId, userName, onLeave }) => {
       {/* Main video layout */}
       <div className={`p2p-view ${showChat ? 'with-chat' : ''}`}>
         <div className="remote-main">
-          {activePeers[0] ? (
-            <VideoItem
-              stream={activePeers[0].stream}
-              id={activePeers[0].peerID}
-              label="Guest"
-              activeAvatar={activeAvatar}
-            />
+          {!isSwapped ? (
+            activePeers[0] ? (
+              <VideoItem
+                stream={activePeers[0].stream}
+                id={activePeers[0].peerID}
+                label="Guest"
+                activeAvatar={activeAvatar}
+              />
+            ) : (
+              <div className="waiting-info">
+                <Sparkles className="pulse-slow" size={48} />
+                <h2>Room: {roomId}</h2>
+                <p>Waiting for the guest to join the secure session...</p>
+              </div>
+            )
           ) : (
-            <div className="waiting-info">
-              <Sparkles className="pulse-slow" size={48} />
-              <h2>Room: {roomId}</h2>
-              <p>Waiting for the guest to join the secure session...</p>
-            </div>
+            <VideoItem
+              stream={localStream}
+              id="local"
+              isLocal={true}
+              isVideoOff={videoOff}
+              label={isScreenSharing ? "Your Screen" : "You"}
+              aiState={aiState}
+              activeFilter={activeFilter}
+              activeSticker={activeSticker}
+              activeAvatar={activeAvatar}
+              userName={userName}
+            />
           )}
         </div>
 
-        <div className="local-small">
-          <VideoItem
-            stream={localStream}
-            id="local"
-            isLocal={true}
-            isVideoOff={videoOff}
-            label={isScreenSharing ? "Your Screen" : "You"}
-            aiState={aiState}
-            activeFilter={activeFilter}
-            activeSticker={activeSticker}
-            activeAvatar={activeAvatar}
-            userName={userName}
-          />
+        <div className="local-small" onClick={() => setIsSwapped(!isSwapped)} title="Click to swap views">
+          {isSwapped ? (
+            activePeers[0] ? (
+              <VideoItem
+                stream={activePeers[0].stream}
+                id={activePeers[0].peerID}
+                label="Guest"
+                activeAvatar={activeAvatar}
+              />
+            ) : (
+              <div className="waiting-placeholder">
+                <UserCircle size={32} opacity={0.3} />
+              </div>
+            )
+          ) : (
+            <VideoItem
+              stream={localStream}
+              id="local"
+              isLocal={true}
+              isVideoOff={videoOff}
+              label={isScreenSharing ? "Your Screen" : "You"}
+              aiState={aiState}
+              activeFilter={activeFilter}
+              activeSticker={activeSticker}
+              activeAvatar={activeAvatar}
+              userName={userName}
+            />
+          )}
+          <div className="swap-tip">Swap</div>
         </div>
 
         {/* Live Captions Overlay */}

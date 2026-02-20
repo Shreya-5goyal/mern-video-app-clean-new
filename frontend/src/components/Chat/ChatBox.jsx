@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { socket } from '../../socket';
-import { Send, X, MessageSquare, Smile, Paperclip } from 'lucide-react';
+import { Send, X, MessageSquare, Smile, Paperclip, Sparkles } from 'lucide-react';
 import './ChatBox.css';
 
 // Quick emoji reactions
@@ -71,15 +71,49 @@ const ChatBox = ({ roomId, userName, onClose }) => {
             ]);
         };
 
+        const handleChatHistory = (history) => {
+            setMessages(history.map(msg => ({
+                id: msg._id || Date.now() + Math.random(),
+                senderId: msg.senderId === socket.id ? socket.id : 'other',
+                senderName: msg.senderName === userName ? 'You' : msg.senderName,
+                text: msg.text,
+                timestamp: msg.timestamp,
+                type: msg.type || 'text',
+                isOwn: msg.senderName === userName
+            })));
+        };
+
         socket.on('chat-message', handleChatMessage);
+        socket.on('chat-history', handleChatHistory);
         socket.on('user-joined-chat', handleUserJoined);
         socket.on('user-left-chat', handleUserLeft);
 
         // Announce joining
         socket.emit('chat-join', { roomId, userName });
 
+        // Proactive AI welcome
+        const welcomeTimer = setTimeout(() => {
+            setMessages(prev => {
+                // Only add if no AI messages exist yet
+                if (prev.some(m => m.senderName === 'AI Assistant')) return prev;
+                return [
+                    ...prev,
+                    {
+                        id: 'ai-welcome',
+                        senderId: 'ai',
+                        senderName: 'AI Assistant',
+                        text: `Hello ${userName}! I'm your Session AI. Need a summary or help with filters? Just ask me! ✨`,
+                        timestamp: Date.now(),
+                        isOwn: false
+                    }
+                ];
+            });
+        }, 1500);
+
         return () => {
+            clearTimeout(welcomeTimer);
             socket.off('chat-message', handleChatMessage);
+            socket.off('chat-history', handleChatHistory);
             socket.off('user-joined-chat', handleUserJoined);
             socket.off('user-left-chat', handleUserLeft);
             socket.emit('chat-leave', { roomId, userName });
@@ -106,13 +140,14 @@ const ChatBox = ({ roomId, userName, onClose }) => {
         socket.emit('chat-message', messageData);
 
         // Add locally immediately (optimistic update)
+        const userMsgText = text.trim();
         setMessages(prev => [
             ...prev,
             {
                 id: Date.now() + Math.random(),
                 senderId: socket.id,
                 senderName: 'You',
-                text: text.trim(),
+                text: userMsgText,
                 timestamp: Date.now(),
                 type,
                 isOwn: true,
@@ -122,7 +157,12 @@ const ChatBox = ({ roomId, userName, onClose }) => {
         setInput('');
         setShowEmoji(false);
         inputRef.current?.focus();
-    }, [roomId, userName]);
+
+        // If it looks like a question or starts with /ai, trigger AI
+        if (userMsgText.toLowerCase().startsWith('/ai') || userMsgText.includes('?')) {
+            handleAIAsk(userMsgText.replace('/ai', '').trim());
+        }
+    }, [roomId, userName, handleAIAsk]);
 
     const handleKeyDown = (e) => {
         if (e.key === 'Enter' && !e.shiftKey) {
@@ -140,9 +180,54 @@ const ChatBox = ({ roomId, userName, onClose }) => {
     };
 
     const getAvatarColor = (name) => {
+        if (name === 'AI Assistant') return '#10b981'; // Green for AI
         const colors = ['#7c3aed', '#4f46e5', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#ec4899'];
         const idx = name?.charCodeAt(0) % colors.length || 0;
         return colors[idx];
+    };
+
+    const handleAIAsk = async (text) => {
+        // Add a placeholder message for AI typing (local only)
+        const aiMsgId = Date.now() + Math.random();
+        setMessages(prev => [
+            ...prev,
+            {
+                id: aiMsgId,
+                senderId: 'ai',
+                senderName: 'AI Assistant',
+                text: '...',
+                timestamp: Date.now(),
+                isOwn: false,
+                isTyping: true
+            }
+        ]);
+
+        const { getAIResponse } = await import('../../services/aiChatService');
+        const response = await getAIResponse(text);
+
+        // Remove typing placeholder
+        setMessages(prev => prev.filter(m => m.id !== aiMsgId));
+
+        // Send AI response to terminal so others see it and it's saved
+        const aiMessageData = {
+            roomId,
+            senderName: 'AI Assistant',
+            text: response,
+            timestamp: Date.now(),
+            type: 'text',
+        };
+
+        socket.emit('chat-message', aiMessageData);
+
+        // Add locally
+        setMessages(prev => [
+            ...prev,
+            {
+                ...aiMessageData,
+                id: Date.now() + Math.random(),
+                isOwn: false
+            }
+        ]);
     };
 
     return (
@@ -199,12 +284,13 @@ const ChatBox = ({ roomId, userName, onClose }) => {
                                 {!msg.isOwn && (
                                     <span className="chat-sender-name">{msg.senderName}</span>
                                 )}
-                                <div className={`chat-bubble ${msg.type === 'emoji' ? 'emoji-bubble' : ''}`}>
+                                <div className={`chat-bubble ${msg.type === 'emoji' ? 'emoji-bubble' : ''} ${msg.isTyping ? 'typing' : ''}`}>
                                     {msg.type === 'emoji' ? (
                                         <span className="chat-emoji-reaction">{msg.text}</span>
                                     ) : (
                                         <p>{msg.text}</p>
                                     )}
+                                    {msg.isTyping && <div className="typing-dots"><span>.</span><span>.</span><span>.</span></div>}
                                 </div>
                                 <span className="chat-time">{formatTime(msg.timestamp)}</span>
                             </div>
@@ -237,6 +323,18 @@ const ChatBox = ({ roomId, userName, onClose }) => {
                     title="Emoji reactions"
                 >
                     <Smile size={18} />
+                </button>
+
+                <button
+                    className="chat-action-btn ai-spark-btn"
+                    onClick={() => {
+                        if (input.trim()) sendMessage(input);
+                        else setInput('/ai ');
+                        inputRef.current?.focus();
+                    }}
+                    title="Ask AI Assistant"
+                >
+                    <Sparkles size={18} />
                 </button>
 
                 <div className="chat-input-wrapper">

@@ -42,8 +42,9 @@ if (process.env.NODE_ENV !== "production") {
 // ============================================
 // MONGOOSE CONFIGURATION
 // ============================================
-mongoose.set("bufferCommands", false);
+mongoose.set("strictQuery", false);
 import authRoutes from "./routes/authRoutes.js";
+import Message from "./models/Message.js";
 
 const app = express();
 const server = http.createServer(app);
@@ -373,6 +374,54 @@ io.on("connection", (socket) => {
         } catch (err) {
             logger.error("Error in ice-candidate:", err);
         }
+    });
+
+    // ============================================
+    // CHAT EVENTS
+    // ============================================
+    socket.on("chat-join", async ({ roomId, userName }) => {
+        logger.info(`💬 ${userName} joined chat in room: ${roomId}`);
+
+        // Notify others
+        socket.to(roomId).emit("user-joined-chat", { userName, socketId: socket.id });
+
+        // Fetch and send history
+        try {
+            const history = await Message.find({ roomId })
+                .sort({ timestamp: 1 })
+                .limit(100);
+            socket.emit("chat-history", history);
+        } catch (err) {
+            logger.error("Error fetching chat history:", err);
+        }
+    });
+
+    socket.on("chat-message", async ({ roomId, senderName, text, timestamp, type }) => {
+        try {
+            const newMessage = new Message({
+                roomId,
+                senderName,
+                text,
+                timestamp: timestamp || Date.now(),
+                type: type || 'text'
+            });
+            await newMessage.save();
+
+            // Broadcast to others
+            socket.to(roomId).emit("chat-message", {
+                senderId: socket.id,
+                senderName,
+                text,
+                timestamp,
+                type: type || 'text',
+            });
+        } catch (err) {
+            logger.error("Error in chat-message:", err);
+        }
+    });
+
+    socket.on("chat-leave", ({ roomId, userName }) => {
+        socket.to(roomId).emit("user-left-chat", { userName, socketId: socket.id });
     });
 
     // Disconnect handling

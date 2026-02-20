@@ -27,6 +27,8 @@ export const STICKERS = [
     { id: 'fire', name: 'Fire', emoji: '🔥' },
     { id: 'stars', name: 'Stars', emoji: '⭐' },
     { id: 'rainbow', name: 'Rainbow', emoji: '🌈' },
+    { id: 'mustache', name: 'Stache', emoji: '👨' },
+    { id: 'cyber', name: 'Cyber', emoji: '🕶️' },
 ];
 
 const FilterPicker = ({ activeFilter, onFilterChange, activeSticker, onStickerChange }) => {
@@ -90,8 +92,8 @@ const drawSticker = (ctx, stickerId, width, height) => {
 
     ctx.save();
     const centerX = width / 2;
-    const topY = height * 0.15;
-    const fontSize = Math.min(width, height) * 0.15;
+    const topY = height * 0.35; // Moved down slightly to hit the forehead area better
+    const fontSize = Math.min(width, height) * 0.25; // Sized up for better visibility
 
     ctx.font = `${fontSize}px serif`;
     ctx.textAlign = 'center';
@@ -103,39 +105,59 @@ const drawSticker = (ctx, stickerId, width, height) => {
             ctx.font = `${fontSize * 1.2}px serif`;
             ctx.fillText('🐾', centerX - width * 0.25, topY);
             ctx.fillText('🐾', centerX + width * 0.25, topY);
-            ctx.font = `${fontSize * 0.8}px serif`;
-            ctx.fillText('🐶', centerX, height * 0.85);
+            // Tongue logic
+            ctx.font = `${fontSize * 0.6}px serif`;
+            ctx.fillText('👅', centerX, height * 0.6 + Math.sin(Date.now() / 200) * 10);
             break;
         case 'cat':
             ctx.font = `${fontSize * 1.2}px serif`;
             ctx.fillText('🐱', centerX - width * 0.2, topY * 0.8);
             ctx.fillText('🐱', centerX + width * 0.2, topY * 0.8);
+            ctx.fillText('🐾', centerX, height * 0.85);
             break;
         case 'crown':
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = 'gold';
             ctx.font = `${fontSize * 1.5}px serif`;
             ctx.fillText('👑', centerX, topY * 0.6);
+            ctx.shadowBlur = 0;
             break;
         case 'glasses':
-            ctx.font = `${fontSize}px serif`;
-            ctx.fillText('🕶️', centerX, height * 0.45);
+            ctx.font = `${fontSize * 1.2}px serif`;
+            ctx.fillText('😎', centerX, height * 0.45);
             break;
         case 'fire':
             ctx.font = `${fontSize * 0.8}px serif`;
-            ctx.fillText('🔥', centerX - width * 0.35, topY);
-            ctx.fillText('🔥', centerX + width * 0.35, topY);
-            ctx.fillText('🔥', centerX, topY * 0.5);
+            ctx.fillText('🔥', centerX - width * 0.3, height * 0.5 + Math.sin(Date.now() / 150) * 20);
+            ctx.fillText('🔥', centerX + width * 0.3, height * 0.5 + Math.cos(Date.now() / 150) * 20);
             break;
         case 'stars':
             ctx.font = `${fontSize * 0.6}px serif`;
-            for (let i = 0; i < 5; i++) {
-                const x = (width / 6) * (i + 0.5);
-                const y = topY * (0.5 + Math.sin(i * 1.2) * 0.3);
+            for (let i = 0; i < 8; i++) {
+                const angle = (Date.now() / 1000) + (i * Math.PI / 4);
+                const x = centerX + Math.cos(angle) * (width * 0.3);
+                const y = height * 0.45 + Math.sin(angle) * (height * 0.2);
                 ctx.fillText('⭐', x, y);
             }
             break;
         case 'rainbow':
+            ctx.globalAlpha = 0.6;
             ctx.font = `${fontSize * 2}px serif`;
             ctx.fillText('🌈', centerX, topY * 0.4);
+            ctx.globalAlpha = 1.0;
+            break;
+        case 'mustache':
+            ctx.font = `${fontSize * 0.8}px serif`;
+            ctx.fillText('👨🏻‍🎨', centerX, height * 0.58); // Positioned above mouth
+            break;
+        case 'cyber':
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = '#00f2ff';
+            ctx.fillStyle = '#00f2ff';
+            ctx.font = `${fontSize * 0.9}px serif`;
+            ctx.fillText('💠', centerX - width * 0.12, height * 0.43);
+            ctx.fillText('💠', centerX + width * 0.12, height * 0.43);
+            ctx.shadowBlur = 0;
             break;
         default:
             break;
@@ -176,8 +198,11 @@ export const FilteredVideo = ({ stream, isLocal = false, activeFilter = 'none', 
                 animFrameRef.current = requestAnimationFrame(draw);
                 return;
             }
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
+            // Match canvas to actual visible video size to ensure alignment
+            const rect = video.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             drawSticker(ctx, activeSticker, canvas.width, canvas.height);
             animFrameRef.current = requestAnimationFrame(draw);

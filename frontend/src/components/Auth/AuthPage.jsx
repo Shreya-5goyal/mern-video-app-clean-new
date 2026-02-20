@@ -17,16 +17,23 @@ const AuthPage = () => {
         setError("");
         setIsLoading(true);
         try {
-            // Add a small artificial delay for smoother UX if the backend is too fast, 
-            // or to show the loading state if the backend is slow.
-            // But we won't add artificial delay, just rely on actual network.
             if (isLogin) {
                 await login(email, password);
             } else {
                 await signup(name, email, password);
             }
         } catch (err) {
-            setError(err.response?.data?.message || "Invalid credentials. Please try again.");
+            console.error("Auth error details:", err);
+            const serverMsg = err.response?.data?.message;
+            const status = err.response?.status;
+
+            if (status === 503) {
+                setError("Server is still connecting to the database. Please wait 5 seconds and try again.");
+            } else if (status === 401) {
+                setError("Invalid email or password. Please check your credentials.");
+            } else {
+                setError(serverMsg || "Connection failed. Please check if the backend is running.");
+            }
             setIsLoading(false);
         }
     };

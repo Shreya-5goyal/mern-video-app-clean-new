@@ -99,6 +99,22 @@ export const AVATARS = [
         accent: '#00bfff',
         badge: '🔥',
     },
+    {
+        id: 'supernova',
+        name: 'Supernova',
+        emoji: '💥',
+        bg: 'radial-gradient(circle, #ff00cc, #3333ff)',
+        accent: '#ffffff',
+        badge: '✨',
+    },
+    {
+        id: 'glitch',
+        name: 'Glitch',
+        emoji: '👾',
+        bg: 'linear-gradient(90deg, #ff0000, #00ff00, #0000ff)',
+        accent: '#ffff00',
+        badge: '⚡',
+    },
 ];
 
 // The animated avatar display shown during video call

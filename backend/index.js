@@ -7,10 +7,12 @@ import cors from "cors";
 
 dotenv.config();
 
-// CRITICAL: Set this BEFORE importing any routes/models
-mongoose.set('bufferCommands', false);
+// CRITICAL: Database configuration
+mongoose.set('strictQuery', false);
 
 import authRoutes from "./routes/authRoutes.js";
+import aiRoutes from "./routes/aiRoutes.js";
+import Message from "./models/Message.js";
 
 
 const app = express();
@@ -22,40 +24,59 @@ const io = new Server(server, {
 });
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: true,
+  credentials: true
+}));
 app.use(express.json());
+
+// Request logger for auth
+app.use((req, res, next) => {
+  if (req.path.startsWith('/api/auth') || req.path.startsWith('/api/ai')) {
+    console.log(`[API] ${req.method} ${req.path} from ${req.headers.origin}`);
+  }
+  next();
+});
 
 // Routes
 app.use("/api/auth", authRoutes);
+app.use("/api/ai", aiRoutes);
+
+// DB connection state
+let isDbConnected = false;
+
+mongoose.connection.on('connected', () => {
+  isDbConnected = true;
+  console.log("📦 MongoDB Connected Successfully");
+});
+
+mongoose.connection.on('error', (err) => {
+  isDbConnected = false;
+  console.error("❌ MongoDB Connection Error:", err.message);
+});
+
+mongoose.connection.on('disconnected', () => {
+  isDbConnected = false;
+  console.warn("⚠️ MongoDB Disconnected. Retrying...");
+});
 
 // Database Connection
 const MONGO_URI = process.env.MONGO_URI;
 
-if (!MONGO_URI) {
-  console.error("❌ CRITICAL: MONGO_URI is not defined in environment variables.");
-  if (process.env.NODE_ENV === 'production') {
-    console.error("Please set MONGO_URI in your production environment settings.");
-  } else {
-    console.log("Using local fallback: mongodb://localhost:27017/webrtc_app");
-  }
-}
-
 mongoose
   .connect(MONGO_URI || "mongodb://localhost:27017/webrtc_app", {
     serverSelectionTimeoutMS: 5000,
-    connectTimeoutMS: 10000,
+    socketTimeoutMS: 45000,
   })
-  .then(() => console.log("📦 MongoDB Connected Successfully"))
   .catch((err) => {
-    console.error("❌ MongoDB Connection Error Detail:", err.message);
+    console.error("❌ MongoDB Initial Connection Error:", err.message);
   });
 
 // Status Route for Debugging
 app.get("/api/auth/status", (req, res) => {
-  const status = mongoose.connection.readyState;
-  const states = ["disconnected", "connected", "connecting", "disconnecting"];
   res.json({
-    status: states[status],
+    status: isDbConnected ? "connected" : "disconnected",
+    readyState: mongoose.connection.readyState,
     dbName: mongoose.connection.name,
     env: process.env.NODE_ENV
   });
@@ -96,13 +117,37 @@ io.on("connection", (socket) => {
   // ============================================
   // CHAT EVENTS
   // ============================================
-  socket.on("chat-join", ({ roomId, userName }) => {
+  socket.on("chat-join", async ({ roomId, userName }) => {
     socketToName[socket.id] = userName;
     // Notify others in the room
     socket.to(roomId).emit("user-joined-chat", { userName, socketId: socket.id });
+
+    // Fetch and send message history
+    try {
+      const history = await Message.find({ roomId })
+        .sort({ timestamp: 1 })
+        .limit(100);
+      socket.emit("chat-history", history);
+    } catch (err) {
+      console.error("Error fetching chat history:", err);
+    }
   });
 
-  socket.on("chat-message", ({ roomId, senderName, text, timestamp, type }) => {
+  socket.on("chat-message", async ({ roomId, senderName, text, timestamp, type }) => {
+    // Save to database
+    try {
+      const newMessage = new Message({
+        roomId,
+        senderName,
+        text,
+        timestamp: timestamp || Date.now(),
+        type: type || 'text'
+      });
+      await newMessage.save();
+    } catch (err) {
+      console.error("Error saving message:", err);
+    }
+
     // Broadcast to all others in the room
     socket.to(roomId).emit("chat-message", {
       senderId: socket.id,
